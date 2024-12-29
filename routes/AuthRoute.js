@@ -3,8 +3,11 @@ import bcrypt from "bcrypt";
 import Registered_Voter from "../model/User.js";
 import Web3 from "web3";
 import jwt from "jsonwebtoken";
+import {JsonRpcProvider} from "ethers";
 
 const web3 = new Web3();
+// const provider = new JsonRpcProvider("http://localhost:8545");
+// web3.setProvider(provider);
 
 const router = express.Router();
 
@@ -27,14 +30,15 @@ router.post("/register", async (req, res) => {
         return res.status(400).json({ message: "Voter already exists" });
     }
     const hashed_password = await bcrypt.hash(password, 10);
-    const wallet_address = await createWallet();
+    const {address, private_key} = await createWallet();
     const new_voter = new Registered_Voter({
         first_name,
         surname,
         other_names,
         national_identification_number,
         password: hashed_password,
-        wallet_address: wallet_address,
+        wallet_address: address,
+        wallet_private_key: private_key
     });
     new_voter.save().then(() => {
         console.log("Voter registration successfull");
@@ -50,7 +54,7 @@ router.post("/login", async (req, res) => {
     console.log(req.body);
     console.log("Checking if voter is already registered....");
     let existing_voter = await Registered_Voter.findOne({
-        national_identification_number,
+        national_identification_number: national_identification_number
     });
     if (!existing_voter) {
         console.error("Voter does not exist");
@@ -71,7 +75,7 @@ router.post("/login", async (req, res) => {
         { expiresIn: "1h" }
     );
     res.cookie("token", token, { maxAge: 3600000, httpOnly: true });
-    // connectMetaMask();
+    res.cookie("wallet_address", existing_voter.wallet_address)
     return res.status(200).json({ message: "Login successfull" });
 });
 
@@ -96,8 +100,8 @@ router.get("/verify", async (req, res) => {
     * Function to create a metamask wallet for a user
  */
 const createWallet = async () => {
-    let wallet_address = web3.eth.accounts.create();
-    return wallet_address.privateKey;
+    let wallet = web3.eth.accounts.create();
+    return {address: wallet.address, private_key: wallet.privateKey };
 };
 
 export { router as AuthRouter };

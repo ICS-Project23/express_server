@@ -6,7 +6,8 @@ const registeredVoterSchema = new mongoose.Schema({
     other_names: {type: String, required: false},
     national_identification_number: {type: String, required: true, unique: true},
     password: {type: String, required: true},
-    wallet_address: {type: String, required: true}
+    wallet_address: {type: String, required: true},
+    wallet_private_key: {type: String, required: true}
 })
 
 const Registered_Voter = mongoose.model(
