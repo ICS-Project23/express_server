@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import { ethers } from "ethers";
 
-
 dotenv.config();
 
 export const VotingContractConfig = {
@@ -12,6 +11,11 @@ export const VotingContractConfig = {
                 {
                     internalType: "address",
                     name: "_candidateManagerAddress",
+                    type: "address",
+                },
+                {
+                    internalType: "address",
+                    name: "_electionAddress",
                     type: "address",
                 },
             ],
@@ -51,29 +55,13 @@ export const VotingContractConfig = {
             type: "function",
         },
         {
-            inputs: [
-                {
-                    internalType: "uint256",
-                    name: "_candidateId",
-                    type: "uint256",
-                },
-            ],
-            name: "getCandidate",
+            inputs: [],
+            name: "election",
             outputs: [
                 {
-                    internalType: "uint256",
+                    internalType: "contract Election",
                     name: "",
-                    type: "uint256",
-                },
-                {
-                    internalType: "string",
-                    name: "",
-                    type: "string",
-                },
-                {
-                    internalType: "uint256",
-                    name: "",
-                    type: "uint256",
+                    type: "address",
                 },
             ],
             stateMutability: "view",
@@ -83,7 +71,58 @@ export const VotingContractConfig = {
             inputs: [
                 {
                     internalType: "uint256",
-                    name: "_candidateId",
+                    name: "_position_id",
+                    type: "uint256",
+                },
+            ],
+            name: "getResultsByPosition",
+            outputs: [
+                {
+                    components: [
+                        {
+                            internalType: "uint256",
+                            name: "id",
+                            type: "uint256",
+                        },
+                        {
+                            internalType: "string",
+                            name: "full_name",
+                            type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "party",
+                            type: "string",
+                        },
+                        {
+                            internalType: "uint256",
+                            name: "vote_count",
+                            type: "uint256",
+                        },
+                    ],
+                    internalType: "struct Voting.CandidateResult[]",
+                    name: "",
+                    type: "tuple[]",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_candidate_id",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_position_id",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
                     type: "uint256",
                 },
             ],
@@ -111,31 +150,23 @@ export const VotingContractConfig = {
             stateMutability: "view",
             type: "function",
         },
-        {
-            inputs: [
-                {
-                    internalType: "uint256",
-                    name: "",
-                    type: "uint256",
-                },
-            ],
-            name: "votes",
-            outputs: [
-                {
-                    internalType: "uint256",
-                    name: "",
-                    type: "uint256",
-                },
-            ],
-            stateMutability: "view",
-            type: "function",
-        },
     ],
 };
 
 export const CandidateManagerConfig = {
     address: process.env.CANDIDATE_MANAGER_CONTRACT_ADDRESS,
     abi: [
+        {
+            inputs: [
+                {
+                    internalType: "address",
+                    name: "_electionAddress",
+                    type: "address",
+                },
+            ],
+            stateMutability: "nonpayable",
+            type: "constructor",
+        },
         {
             anonymous: false,
             inputs: [
@@ -159,50 +190,33 @@ export const CandidateManagerConfig = {
             inputs: [
                 {
                     internalType: "string",
-                    name: "_name",
+                    name: "_full_name",
                     type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "_date_of_birth",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "_cid",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "_party",
+                    type: "string",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_position_id",
+                    type: "uint256",
                 },
             ],
             name: "addCandidate",
             outputs: [],
             stateMutability: "nonpayable",
-            type: "function",
-        },
-        {
-            inputs: [
-                {
-                    internalType: "uint256",
-                    name: "",
-                    type: "uint256",
-                },
-            ],
-            name: "candidates",
-            outputs: [
-                {
-                    internalType: "uint256",
-                    name: "id",
-                    type: "uint256",
-                },
-                {
-                    internalType: "string",
-                    name: "name",
-                    type: "string",
-                },
-            ],
-            stateMutability: "view",
-            type: "function",
-        },
-        {
-            inputs: [],
-            name: "candidatesCount",
-            outputs: [
-                {
-                    internalType: "uint256",
-                    name: "",
-                    type: "uint256",
-                },
-            ],
-            stateMutability: "view",
             type: "function",
         },
         {
@@ -218,8 +232,28 @@ export const CandidateManagerConfig = {
                         },
                         {
                             internalType: "string",
-                            name: "name",
+                            name: "full_names",
                             type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "date_of_birth",
+                            type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "cid",
+                            type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "party",
+                            type: "string",
+                        },
+                        {
+                            internalType: "uint256",
+                            name: "position_id",
+                            type: "uint256",
                         },
                     ],
                     internalType: "struct CandidateManager.Candidate[]",
@@ -234,7 +268,12 @@ export const CandidateManagerConfig = {
             inputs: [
                 {
                     internalType: "uint256",
-                    name: "_candidateId",
+                    name: "_candidate_id",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
                     type: "uint256",
                 },
             ],
@@ -250,6 +289,133 @@ export const CandidateManagerConfig = {
                     name: "",
                     type: "string",
                 },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "getCandidateCount",
+            outputs: [
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_candidate_id",
+                    type: "uint256",
+                },
+            ],
+            name: "getCandidatePosition",
+            outputs: [
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_position_id",
+                    type: "uint256",
+                },
+            ],
+            name: "getCandidatesCountByPosition",
+            outputs: [
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_position__id",
+                    type: "uint256",
+                },
+            ],
+            name: "getCandidatesForPosition",
+            outputs: [
+                {
+                    components: [
+                        {
+                            internalType: "uint256",
+                            name: "id",
+                            type: "uint256",
+                        },
+                        {
+                            internalType: "string",
+                            name: "full_names",
+                            type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "date_of_birth",
+                            type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "cid",
+                            type: "string",
+                        },
+                        {
+                            internalType: "string",
+                            name: "party",
+                            type: "string",
+                        },
+                        {
+                            internalType: "uint256",
+                            name: "position_id",
+                            type: "uint256",
+                        },
+                    ],
+                    internalType: "struct CandidateManager.Candidate[]",
+                    name: "",
+                    type: "tuple[]",
+                },
             ],
             stateMutability: "view",
             type: "function",
@@ -257,3 +423,299 @@ export const CandidateManagerConfig = {
     ],
 };
 
+export const ElectionConfig = {
+    address: process.env.ELECTION_CONTRACT_ADDRESS,
+    abi: [
+        {
+            inputs: [],
+            stateMutability: "nonpayable",
+            type: "constructor",
+        },
+        {
+            anonymous: false,
+            inputs: [
+                {
+                    indexed: false,
+                    internalType: "string",
+                    name: "name",
+                    type: "string",
+                },
+                {
+                    indexed: false,
+                    internalType: "uint256",
+                    name: "startTime",
+                    type: "uint256",
+                },
+                {
+                    indexed: false,
+                    internalType: "uint256",
+                    name: "endTime",
+                    type: "uint256",
+                },
+            ],
+            name: "ElectionCreated",
+            type: "event",
+        },
+        {
+            anonymous: false,
+            inputs: [],
+            name: "ElectionEnded",
+            type: "event",
+        },
+        {
+            anonymous: false,
+            inputs: [],
+            name: "ElectionStarted",
+            type: "event",
+        },
+        {
+            anonymous: false,
+            inputs: [
+                {
+                    indexed: true,
+                    internalType: "uint256",
+                    name: "positionId",
+                    type: "uint256",
+                },
+                {
+                    indexed: false,
+                    internalType: "string",
+                    name: "name",
+                    type: "string",
+                },
+                {
+                    indexed: false,
+                    internalType: "string",
+                    name: "description",
+                    type: "string",
+                },
+            ],
+            name: "PositionAdded",
+            type: "event",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "string",
+                    name: "_name",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "_description",
+                    type: "string",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_electionId",
+                    type: "uint256",
+                },
+            ],
+            name: "addPosition",
+            outputs: [],
+            stateMutability: "nonpayable",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "admin",
+            outputs: [
+                {
+                    internalType: "address",
+                    name: "",
+                    type: "address",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "string",
+                    name: "_name",
+                    type: "string",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_startTime",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_endTime",
+                    type: "uint256",
+                },
+            ],
+            name: "createElection",
+            outputs: [],
+            stateMutability: "nonpayable",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "electionStatus",
+            outputs: [
+                {
+                    internalType: "bool",
+                    name: "",
+                    type: "bool",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "endElection",
+            outputs: [],
+            stateMutability: "nonpayable",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "getAllElections",
+            outputs: [
+                {
+                    internalType: "uint256[]",
+                    name: "",
+                    type: "uint256[]",
+                },
+                {
+                    internalType: "string[]",
+                    name: "",
+                    type: "string[]",
+                },
+                {
+                    internalType: "uint256[]",
+                    name: "",
+                    type: "uint256[]",
+                },
+                {
+                    internalType: "uint256[]",
+                    name: "",
+                    type: "uint256[]",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_electionId",
+                    type: "uint256",
+                },
+            ],
+            name: "getAllPositions",
+            outputs: [
+                {
+                    internalType: "uint256[]",
+                    name: "",
+                    type: "uint256[]",
+                },
+                {
+                    internalType: "string[]",
+                    name: "",
+                    type: "string[]",
+                },
+                {
+                    internalType: "string[]",
+                    name: "",
+                    type: "string[]",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_electionId",
+                    type: "uint256",
+                },
+            ],
+            name: "getElectionDetails",
+            outputs: [
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_positionId",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_electionId",
+                    type: "uint256",
+                },
+            ],
+            name: "getPosition",
+            outputs: [
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+                {
+                    internalType: "string",
+                    name: "",
+                    type: "string",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "isElectionActive",
+            outputs: [
+                {
+                    internalType: "bool",
+                    name: "",
+                    type: "bool",
+                },
+            ],
+            stateMutability: "view",
+            type: "function",
+        },
+        {
+            inputs: [],
+            name: "startElection",
+            outputs: [],
+            stateMutability: "nonpayable",
+            type: "function",
+        },
+    ],
+};

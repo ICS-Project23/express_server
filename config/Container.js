@@ -1,6 +1,6 @@
 import {ethers} from 'ethers' 
 import dotenv from 'dotenv'
-import { VotingContractConfig, CandidateManagerConfig } from './Contract.js'
+import { VotingContractConfig, CandidateManagerConfig, ElectionConfig } from './Contract.js'
 
 dotenv.config()
 
@@ -15,3 +15,12 @@ export const candidate_manager_contract = new ethers.Contract(
     CandidateManagerConfig.abi,
     provider
 );
+export const election_contract = new ethers.Contract(
+    ElectionConfig.address,
+    ElectionConfig.abi,
+    provider
+)
+export const getUserSigner = (privatKey) => {
+    const wallet = new ethers.Wallet(privatKey, provider);
+    return wallet;
+};

@@ -1,39 +1,22 @@
-import express from 'express'; 
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import cookieParser from 'cookie-parser';
-import cors from 'cors';
 import { AuthRouter } from './routes/AuthRoute.js';
-import createBlockchainRouter from "./routes/BlockChainRoute.js";
-import { ethers } from 'ethers';
-import {Server} from 'socket.io'
-import {createServer} from 'http'
+import {blockchainRouter} from "./routes/BlockChainRoute.js";
+import app from './config/Express.js';
+import { server } from './config/SocketIO.js';
+import { ElectionRouter } from './routes/Election.js';
+import { CandidateRouter } from './routes/Candidate.js';
 
 dotenv.config();
 
-const app = express();
-const server = createServer(app);
-const io = new Server(server);
-const corsOptions = {
-    origin: "http://localhost:3001", // Allow requests only from this origin
-    methods: "GET,POST", // Allow only these HTTP methods
-    allowedHeaders: "Content-Type", // Allow only these headers
-    credentials: true, // Allow cookies to be sent
-};
-app.use(cors(corsOptions));
-app.use(cookieParser());
-app.use(express.json());
+
 app.use("/auth",AuthRouter);
-app.use("/blockchain", createBlockchainRouter(io));
-
-
-
-
+app.use("/vote", blockchainRouter);
+app.use("/election", ElectionRouter)
+app.use("/candidate", CandidateRouter)
 app.get("/", (req, res) => {
     res.send("Welcome to the voter registration API");
 })
-
-
 
 /*
     * Connect application to mongodb
