@@ -6,12 +6,13 @@ import express from 'express'
 import { election_contract, getUserSigner } from '../config/Container.js';
 import redis_client from '../config/Redis.js';
 import moment from "moment/moment.js";
-
+import io from '../config/SocketIO.js';
 
 const router = express.Router()
 
 router.post("/", (req, res) => {
-    const { name, start, end, pk } = req.body;
+    const { name, start, end } = req.body;
+    const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
     const start_timestamp = moment(start, "DD MMMM, YYYY").unix();
@@ -25,7 +26,7 @@ router.post("/", (req, res) => {
         .createElection(name, start_timestamp, end_timestamp)
         .then((tx) => {
             console.log("Election created successfully");
-            return res.send(tx);
+            return res.status(200).send({message: "Election created successfully", tx: tx});
         })
         .catch((error) => {
             console.error(
@@ -34,129 +35,123 @@ router.post("/", (req, res) => {
             console.error(error);
             return res
                 .status(500)
-                .send("An error occurred when trying to create an election");
+                .send({message: "An error occurred when trying to create an election", error: error.shortMessage});
         });
 });
 router.get("/", (req, res) => {
-    const { pk } = req.body;
+    const pk = req.cookies.pk;
     console.log("Getting election ....");
+    let elections_list = redis_client.get("elections_list");
+    if (elections_list) {
+        console.log("Cache hit");
+        return res.status(200).send(elections_list);
+    }
+    console.log("Cache miss");
+    io.emit("Election List cache expired")
     const signer = getUserSigner(pk);
     election_contract
         .connect(signer)
         .getAllElections()
-        .then((election) => {
-            console.log("Election:", election);
-            const electionJSON = {
-                id: election[0][0].toString(),
-                name: election[1][0],
+        .then((elections) => {
+            console.log("Election:", elections);
+            const electionsJSON = elections[0].map((id, index) => ({
+                id: id.toString(),
+                name: elections[1][index],
                 start: moment
-                    .unix(Number(election[2][0]))
+                    .unix(Number(elections[2][index]))
                     .format("DD MMMM, YYYY"),
                 end: moment
-                    .unix(Number(election[3][0]))
+                    .unix(Number(elections[3][index]))
                     .format("DD MMMM, YYYY"),
-            };
+            }));
             console.log("electionJSON");
-            redis_client.set("electionDetails", JSON.stringify(electionJSON));
-            return res.status(200).send(electionJSON);
+            redis_client.setEx("elections_list", 3600, JSON.stringify(electionsJSON));
+            return res.status(200).send(electionsJSON);
         })
         .catch((error) => {
             console.error("An error occurred when trying to get the election");
             console.error(error);
             return res
                 .status(500)
-                .send("An error occurred when trying to get the election");
+                .send({message:"An error occurred when trying to get the election", error: error.shortMessage});
         });
 });
+let queue = [];
+let processing = false;
+const processQueue = async () => {
+    if (processing) return;
+    processing = true;
+    while (queue.length > 0) {
+        const { name, description, election_id, pk, res } = queue.shift();
+        try {
+            const signer = getUserSigner(pk);
+            const tx = election_contract
+                .connect(signer)
+                .addPosition(name, description, election_id);
+            console.log(`Position added successfully ${name}`);
+            res.send({message: "Position added successfully", tx: tx});
+        } catch (error) {
+            console.error("An error occurred when trying to add a position");
+            console.error(error);
+            res
+                .status(500)
+                .send({
+                    message: "An error occurred when trying to add a position",
+                    error: error.shortMessage
+                });
+        }
+    }
+    processing = false;
+};
 router.post("/position/", (req, res) => {
-    const { name, description, pk } = req.body;
-    redis_client
-        .get("electionDetails")
-        .then((electionDetails) => {
-            if (electionDetails) {
-                const election = JSON.parse(electionDetails);
-                console.log("Election details from cache");
-                console.log(election);
-                const signer = getUserSigner(pk);
-                console.log("Adding position ....");
-                election_contract
-                    .connect(signer)
-                    .addPosition(name, description, election.id)
-                    .then((tx) => {
-                        console.log("Position added successfully");
-                        return res.send(tx);
-                    })
-                    .catch((error) => {
-                        console.error(
-                            "An error occurred when trying to add a position"
-                        );
-                        console.error(error);
-                        return res
-                            .status(500)
-                            .send(
-                                "An error occurred when trying to add a position",
-                                error.shortMessage
-                            );
-                    });
-            } else {
-                console.log("Election details not found in cache");
-                return res
-                    .status(404)
-                    .send("Election details not found in cache");
-            }
+    const { name, description, election_id} = req.body;
+    let pk = req.cookies.pk;
+    console.log("Data from request");
+    console.log(req.body);
+    queue.push({name, description, election_id, pk, res})
+    processQueue()
+});
+
+router.get("/:election_id/positions/", (req, res) => {
+    console.log("Getting electiion positions...");
+    const { election_id } = req.params;
+    const pk = req.cookies.pk;
+    const signer = getUserSigner(pk);
+    election_contract
+        .connect(signer)
+        .getAllPositions(election_id)
+        .then((positions) => {
+            console.log("Positions:");
+            console.log(positions);
+            const positionsJSON = positions[0].map((id, index) => ({
+                id: id.toString(),
+                name: positions[1][index],
+                description: positions[2][index],
+            }));
+            console.log("Positions JSON");
+            console.log(positionsJSON);
+            return res.status(200).send(positionsJSON);
         })
         .catch((error) => {
-            console.error(
-                "An error occurred when trying to get election details from redis"
-            );
+            console.error("An error occurred when trying to get positions");
             console.error(error);
             return res
                 .status(500)
                 .send(
-                    "An error occurred when trying to get election details from redis"
+                    "An error occurred when trying to get positions",
+                    error.shortMessage
                 );
         });
-});
-router.get("/positions", (req, res) => {
-    console.log("Getting electiion positions...");
-    const { pk } = req.body;
-    const signer = getUserSigner(pk);
-    redis_client.get("electionDetails").then((electionDetails) => {
-        if (electionDetails) {
-            console.log("Cache hit");
-            const election = JSON.parse(electionDetails);
-            election_contract
-                .connect(signer)
-                .getAllPositions(election.id)
-                .then((positions) => {
-                    console.log("Positions:");
-                    console.log(positions);
-                    const positionsJSON = positions[0].map((id, index) => ({
-                        id: id.toString(),
-                        name: positions[1][index],
-                        description: positions[2][index],
-                    }));
-                    console.log("Positions JSON");
-                    console.log(positionsJSON);
-                    return res.status(200).send(positionsJSON);
-                })
-                .catch((error) => {
-                    console.error(
-                        "An error occurred when trying to get positions"
-                    );
-                    console.error(error);
-                    return res
-                        .status(500)
-                        .send(
-                            "An error occurred when trying to get positions",
-                            error.shortMessage
-                        );
-                });
-        } else {
-            console.log("Cache miss");
-            return res.status(404).send("Election details not found in cache");
-        }
-    });
+    // redis_client.get("electionDetails").then((electionDetails) => {
+    //     if (electionDetails) {
+    //         console.log("Cache hit");
+    //         const election = JSON.parse(electionDetails);
+            
+    //     } else {
+    //         console.log("Cache miss");
+    //         return res.status(404).send("Election details not found in cache");
+    //     }
+    // });
 });
 router.get("/positions/:id", (req, res) => {
     redis_client.get("electionDetails").then((electionDetails) => {
@@ -164,7 +159,7 @@ router.get("/positions/:id", (req, res) => {
             console.log("Cache hit");
             const election = JSON.parse(electionDetails);
             const { id } = req.params;
-            const { pk } = req.body;
+            const pk = req.cookies.pk;
             const signer = getUserSigner(pk);
             console.log("Getting position ....");
             election_contract
@@ -202,7 +197,7 @@ router.post("/start", (req, res) => {
     //             return res.status(400).send("Election has already started");
     //         }
     //     })
-    const { pk } = req.body;
+    const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     console.log("Starting election ....");
     election_contract
@@ -227,7 +222,7 @@ router.post("/stop", (req, res) => {
     //         return res.status(400).send("Election has already stoped");
     //     }
     // });
-    const { pk } = req.body;
+    const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     console.log("Stopping election ....");
     election_contract
@@ -251,7 +246,10 @@ router.post("/stop", (req, res) => {
 });
 router.get("/status", (req, res) => {
     console.log("Getting election status ....");
+    const pk = req.cookies.pk
+    const signer = getUserSigner(pk);
     election_contract
+        .connect(signer)
         .isElectionActive()
         .then(async (status) => {
             console.log("Election status:", status);
@@ -284,7 +282,7 @@ router.get("/status", (req, res) => {
     * Event Listeners
 */
 election_contract.on("ElectionCreated", () => {
-    console.log("Election Created");
+    console.log("Election Created Event");
     redis_client
         .flushAll()
         .then((result) => {
@@ -294,15 +292,16 @@ election_contract.on("ElectionCreated", () => {
             console.error("An error occurred when trying to clear cache");
             console.error(error);
         });
-    redis_client.set("electionStatus", false);
+    redis_client.set("electionStatus", "false");
+    io.emit("Election Created Event");
 });
 election_contract.on("ElectionStarted", () => {
     console.log("Election Started Event");
-    redis_client.set("electionStatus", true);
+    redis_client.set("electionStatus", "true");
 });
 election_contract.on("ElectionEnded", () => {
-    console.log("Election Ended");
-    redis_client.set("electionStatus", false);
+    console.log("Election Ended Event");
+    redis_client.set("electionStatus", "false");
 });
 
 

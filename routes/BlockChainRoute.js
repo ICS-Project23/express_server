@@ -41,7 +41,8 @@ router.get("/clear-cache", (req, res) => {
  * Voting Contract Routes
  */
 router.post("/", async (req, res) => {
-    const { candidateId, positionId, pk } = req.body;
+    const { candidateId, positionId} = req.body;
+    const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
     let signer = getUserSigner(pk);
@@ -109,6 +110,8 @@ router.get("/results", (req, res) => {
             return res.status(500).send(error.shortMessage);
         });
 });
+
+// TODO: Sort out Results function
 
 /*
  * Event Listeners

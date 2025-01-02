@@ -75,7 +75,7 @@ router.post("/login", async (req, res) => {
         { expiresIn: "1h" }
     );
     res.cookie("token", token, { maxAge: 3600000, httpOnly: true });
-    res.cookie("wallet_address", existing_voter.wallet_address)
+    res.cookie("pk", existing_voter.wallet_address)
     return res.status(200).json({ message: "Login successfull" });
 });
 

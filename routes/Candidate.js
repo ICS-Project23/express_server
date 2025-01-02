@@ -8,34 +8,60 @@ import redis_client from "../config/Redis.js";
 
 const router = express.Router();
 
+
 router.post("/", (req, res) => {
-    const { full_name, dob, cid, party, position_id, pk } = req.body;
-    console.log("Data from request");
-    console.log(req.body);
-    let signer = getUserSigner(pk);
-    console.log("Adding candidate ....");
-    candidate_manager_contract
-        .connect(signer)
-        .addCandidate(full_name, dob, cid, party, position_id)
-        .then((tx) => {
-            console.log("Candidate added successfully");
-            return res.send(tx);
-        })
-        .catch((error) => {
-            console.error("An error occurred when trying to add a candidate");
-            console.error(error);
-            return res
-                .status(500)
-                .send(
-                    "An error occurred when trying to add a candidate",
-                    error.shortMessage
+    const { full_name, dob, cid, party, position_id } = req.body;
+    const pk = req.cookies.pk;
+    console.log("Data from request", req.body);
+    if (!full_name || !dob || !cid || !party || !position_id) {
+        console.error("Missing required parameters in request body");
+        return res
+            .status(400)
+            .send({message: "Missing required parameters in request body"});
+    }
+
+    let signer;
+    try {
+        signer = getUserSigner(pk);
+    } catch (error) {
+        console.error("Error getting signer:", error);
+        return res.status(500).send("Error getting signer");
+    }
+
+    try {
+        console.log("Adding candidate ....");
+        candidate_manager_contract
+            .connect(signer)
+            .addCandidate(full_name, dob, cid, party, position_id)
+            .then((tx) => {
+                console.log("Candidate added successfully");
+                return res
+                    .status(200)
+                    .send({ message: "Candidate added successfully" });
+            })
+            .catch((error) => {
+                console.error(
+                    "An error occurred when trying to add a candidate"
                 );
+                console.error(error);
+                return res.status(500).send({
+                    message: "An error occurred when trying to add a candidate",
+                    details: error.shortMessage,
+                });
+            });
+    } catch (error) {
+        console.error("Unexpected error:", error);
+        return res.status(500).send({
+            message: "Unexpected error occurred",
+            details: error.message,
         });
+    }
 });
+
 router.get("/", (req, res) => {
     // console.log("Signer:", signer);
     console.log("Getting candidates ....");
-    const { pk } = req.body;
+    const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     candidate_manager_contract
         .connect(signer)
@@ -74,7 +100,7 @@ router.get("/:id", (req, res) => {
             console.log("Cache hit");
             const election = JSON.parse(electionDetails);
             const { id } = req.params;
-            const { pk } = req.body;
+            const pk = req.cookies.pk;
             const signer = getUserSigner(pk);
             console.log("Getting candidate ....");
             candidate_manager_contract
@@ -111,13 +137,13 @@ router.get("/:id", (req, res) => {
 });
 router.get("/position/:id", (req, res) => {
     const { id } = req.params;
-    const { pk } = req.body;
+    const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     console.log("Getting candidates by position ....");
     redis_client.get("candidates").then((candidates) => {
         console.log("Cached candidates");
         console.log(candidates);
-        if (candidates == null) {
+        if (candidates != null) {
             console.log("Cache hit");
             let result = JSON.parse(candidates).filter(
                 (candidate) => candidate.position_id === id

@@ -4,7 +4,7 @@ import { VotingContractConfig, CandidateManagerConfig, ElectionConfig } from './
 
 dotenv.config()
 
-export const provider = new ethers.JsonRpcProvider("http://localhost:8545");
+const provider = new ethers.JsonRpcProvider("http://localhost:8545");
 export const voting_contract = new ethers.Contract(
     VotingContractConfig.address,
     VotingContractConfig.abi,
