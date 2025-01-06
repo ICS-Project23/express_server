@@ -183,5 +183,4 @@ router.get("/position/:id", (req, res) => {
     });
 });
 
-
 export {router as CandidateRouter}

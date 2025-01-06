@@ -3,7 +3,7 @@
 */
 
 import express from 'express'
-import { election_contract, getUserSigner } from '../config/Container.js';
+import { election_contract, getUserSigner, voting_contract } from '../config/Container.js';
 import redis_client from '../config/Redis.js';
 import moment from "moment/moment.js";
 import io from '../config/SocketIO.js';
@@ -42,7 +42,7 @@ router.get("/", (req, res) => {
     const pk = req.cookies.pk;
     console.log("Getting election ....");
     let elections_list = redis_client.get("elections_list");
-    if (elections_list) {
+    if (elections_list.length > 0) {
         console.log("Cache hit");
         return res.status(200).send(elections_list);
     }
@@ -81,35 +81,76 @@ let processing = false;
 const processQueue = async () => {
     if (processing) return;
     processing = true;
+
     while (queue.length > 0) {
         const { name, description, election_id, pk, res } = queue.shift();
         try {
             const signer = getUserSigner(pk);
-            const tx = election_contract
+            const tx = await election_contract
                 .connect(signer)
                 .addPosition(name, description, election_id);
-            console.log(`Position added successfully ${name}`);
-            res.send({message: "Position added successfully", tx: tx});
+            console.log(`Position added successfully: ${name}`);
+
+            // Wait for the PositionAdded event before proceeding to the next item
+            await new Promise((resolve) => {
+                io.once("positionAdded", (event) => {
+                    console.log("Position Added Event Received:", event);
+                    res.send({
+                        message: "Position added successfully",
+                    });
+                    resolve();
+                });
+            });
         } catch (error) {
             console.error("An error occurred when trying to add a position");
             console.error(error);
-            res
-                .status(500)
-                .send({
-                    message: "An error occurred when trying to add a position",
-                    error: error.shortMessage
-                });
+            res.status(500).send({
+                message: "An error occurred when trying to add a position",
+                error: error.message || error.shortMessage,
+            });
         }
     }
+
     processing = false;
+    if (queue.length > 0) {
+        // processQueue();
+    }
 };
-router.post("/position/", (req, res) => {
-    const { name, description, election_id} = req.body;
-    let pk = req.cookies.pk;
-    console.log("Data from request");
-    console.log(req.body);
-    queue.push({name, description, election_id, pk, res})
-    processQueue()
+
+router.post("/position/", async (req, res) => {
+    const { election_id, positions } = req.body;
+    if (!election_id || !positions || !Array.isArray(positions)) {
+        return res.status(400).send("Invalid request body");
+    }
+    let signer;
+    try {
+        signer = getUserSigner(req.cookies.pk);
+    } catch (error) {
+        console.error("Error getting signer:", error);
+        return res.status(500).send("Error getting signer");
+    }
+    console.log("Data from request:", req.body);
+    console.log("Adding positions ....");
+    try {
+        for (const position of positions) {
+            const { name, description } = position;
+            if (!name || !description) {
+                return res.status(400).send("Invalid position data");
+            }
+
+            console.log("Adding position:", name, description);
+            let tx = await election_contract.connect(signer).addPosition(name, description, election_id);
+            tx = await tx.wait();
+            console.log("Position added successfully:", name);
+        }
+
+        console.log("All positions added successfully");
+        return res.status(200).send("All positions added successfully");
+    } catch (error) {
+        console.error("An error occurred when trying to add positions");
+        console.error(error);
+        return res.status(500).send(error.shortMessage || error.message);
+    }
 });
 
 router.get("/:election_id/positions/", (req, res) => {
@@ -303,6 +344,9 @@ election_contract.on("ElectionEnded", () => {
     console.log("Election Ended Event");
     redis_client.set("electionStatus", "false");
 });
-
+election_contract.on("PositionAdded", () => {
+    clonsole.log("Position Added Event");
+    io.emit("positionAdded");
+});
 
 export {router as ElectionRouter}

@@ -21,6 +21,7 @@ export const election_contract = new ethers.Contract(
     provider
 )
 export const getUserSigner = (privatKey) => {
+    
     const wallet = new ethers.Wallet(privatKey, provider);
     return wallet;
 };

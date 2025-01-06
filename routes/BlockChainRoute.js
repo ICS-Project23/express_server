@@ -21,71 +21,57 @@ router.get("/signer", (req, res) => {
     return res.send(signer);
 });
 
-router.get("/clear-cache", (req, res) => {
-    redis_client
-        .flushAll()
-        .then((result) => {
-            console.log("Cache cleared successfully");
-            return res.send("Cache cleared successfully");
-        })
-        .catch((error) => {
-            console.error("An error occurred when trying to clear cache");
-            console.error(error);
-            return res
-                .status(500)
-                .send("An error occurred when trying to clear cache");
-        });
-});
-
 /*
  * Voting Contract Routes
  */
 router.post("/", async (req, res) => {
-    const { candidateId, positionId} = req.body;
+    const { candidateId, positionId, electionId} = req.body;
     const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
     let signer = getUserSigner(pk);
     console.log("Voting ....");
-    redis_client
-        .get("electionDetails")
-        .then((electionDetails) => {
-            if (electionDetails) {
-                console.log("Cache hit");
-                const election = JSON.parse(electionDetails);
-                voting_contract
-                    .connect(signer)
-                    .vote(candidateId, positionId, election.id)
-                    .then((tx) => {
-                        console.log("Voted successfully");
-                        return res.status(200).send(tx);
-                    })
-                    .catch((error) => {
-                        console.error("An error occurred when trying to vote");
-                        console.error(error);
-                        return res.status(500).send(error.shortMessage);
-                    });
-            } else {
-                console.log("Cache miss");
-                return res
-                    .status(404)
-                    .send("Election details not found in cache");
-            }
+    voting_contract
+        .connect(signer)
+        .vote(candidateId, positionId, electionId)
+        .then((tx) => {
+            console.log("Voted successfully");
+            return res.status(200).send(tx);
         })
         .catch((error) => {
-            console.error(
-                "An error occurred when trying to get election details from redis"
-            );
+            console.error("An error occurred when trying to vote");
             console.error(error);
-            return res
-                .status(500)
-                .send(
-                    "An error occurred when trying to get election details from redis"
-                );
+            return res.status(500).send(error.shortMessage);
         });
+    // redis_client
+    //     .get("electionDetails")
+    //     .then((electionDetails) => {
+    //         if (electionDetails) {
+    //             console.log("Cache hit");
+    //             const election = JSON.parse(electionDetails);
+                
+    //         } else {
+    //             console.log("Cache miss");
+    //             return res
+    //                 .status(404)
+    //                 .send("Election details not found in cache");
+    //         }
+    //     })
+    //     .catch((error) => {
+    //         console.error(
+    //             "An error occurred when trying to get election details from redis"
+    //         );
+    //         console.error(error);
+    //         return res
+    //             .status(500)
+    //             .send(
+    //                 "An error occurred when trying to get election details from redis"
+    //             );
+    //     });
 });
 router.get("/results", (req, res) => {
-    const { position_id, pk } = req.body;
+    const { position_id } = req.query;
+    const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
     let signer = getUserSigner(pk);
@@ -93,20 +79,9 @@ router.get("/results", (req, res) => {
     voting_contract
         .connect(signer)
         .getResultsByPosition(position_id)
-        .then((results) => {
-            console.log("Results:");
-            console.log(results);
-            const resultsJSON = results.map((result) => ({
-                id: result[0].toString(),
-                name: result[1],
-                party: result[2],
-                voteCount: result[3].toString(),
-            }));
-            return res.status(200).send(resultsJSON);
-        })
         .catch((error) => {
             console.error("An error occurred when trying to get results");
-            console.error(error.shortMessage);
+            console.error(error.shortMessage || error);
             return res.status(500).send(error.shortMessage);
         });
 });
@@ -121,4 +96,12 @@ voting_contract.on("Voted", (voter, candidateId) => {
     console.log("CandidateId:", candidateId);
     io.emit("vote_update", { voter, candidateId });
 });
+voting_contract.on("CandidateResultsEvent", (id, full_name,party, voteCount) => {
+    console.log("CandidateResultsEvent");
+    console.log("ID:", id);
+    console.log("Full Name:", full_name);
+    console.log("Party:", party);
+    console.log("Vote Count:", voteCount);
+    io.emit("results_event", { id, full_name, party, voteCount });
+})
 export { router as blockchainRouter };
