@@ -6,7 +6,7 @@ import express from 'express'
 import { election_contract, getUserSigner, voting_contract } from '../config/Container.js';
 import redis_client from '../config/Redis.js';
 import moment from "moment/moment.js";
-import io from '../config/SocketIO.js';
+import {wss} from '../config/WebSocket.js';
 
 const router = express.Router()
 
@@ -15,9 +15,9 @@ router.post("/", (req, res) => {
     const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
-    const start_timestamp = moment(start, "DD MMMM, YYYY").unix();
+    const start_timestamp = moment(start).unix();
     console.log("Start time: ", start_timestamp);
-    const end_timestamp = moment(end, "DD MMMM, YYYY").unix();
+    const end_timestamp = moment(end).unix();
     console.log("End time: ", end_timestamp);
     const signer = getUserSigner(pk);
     console.log("Creating election ....");
@@ -47,7 +47,7 @@ router.get("/", (req, res) => {
         return res.status(200).send(elections_list);
     }
     console.log("Cache miss");
-    io.emit("Election List cache expired")
+    // io.emit("Election List cache expired")
     const signer = getUserSigner(pk);
     election_contract
         .connect(signer)
@@ -231,19 +231,14 @@ router.get("/positions/:id", (req, res) => {
         }
     });
 });
-router.post("/start", (req, res) => {
-    // getElectionStatus()
-    //     .then((status) => {
-    //         if (status) {
-    //             return res.status(400).send("Election has already started");
-    //         }
-    //     })
+router.post("/:election_id/start", (req, res) => {
+    const { election_id } = req.params;
     const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     console.log("Starting election ....");
     election_contract
         .connect(signer)
-        .startElection()
+        .startElection(election_id)
         .then((tx) => {
             console.log("Election started successfully");
             return res.send(tx);
@@ -257,18 +252,14 @@ router.post("/start", (req, res) => {
             });
         });
 });
-router.post("/stop", (req, res) => {
-    // getElectionStatus().then((status) => {
-    //     if (!status) {
-    //         return res.status(400).send("Election has already stoped");
-    //     }
-    // });
+router.post("/:election_id/stop", (req, res) => {
+    const {election_id} = req.params;
     const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     console.log("Stopping election ....");
     election_contract
         .connect(signer)
-        .endElection()
+        .endElection(election_id)
         .then(async (tx) => {
             console.log("Election stopped successfully");
             return res.send(tx);
@@ -285,13 +276,14 @@ router.post("/stop", (req, res) => {
                 });
         });
 });
-router.get("/status", (req, res) => {
+router.get("/:election_id/status", (req, res) => {
     console.log("Getting election status ....");
+    const { election_id } = req.params;
     const pk = req.cookies.pk
     const signer = getUserSigner(pk);
     election_contract
         .connect(signer)
-        .isElectionActive()
+        .isElectionActive(election_id)
         .then(async (status) => {
             console.log("Election status:", status);
             redis_client
@@ -334,19 +326,22 @@ election_contract.on("ElectionCreated", () => {
             console.error(error);
         });
     redis_client.set("electionStatus", "false");
-    io.emit("Election Created Event");
+    console.log("Sending election created event");
+    wss.clients.forEach((client) => {
+        if(client.readyState === WebSocket.OPEN) {
+            client.send("Election Created Event");
+        }
+    })
 });
 election_contract.on("ElectionStarted", () => {
     console.log("Election Started Event");
-    redis_client.set("electionStatus", "true");
 });
 election_contract.on("ElectionEnded", () => {
     console.log("Election Ended Event");
-    redis_client.set("electionStatus", "false");
 });
 election_contract.on("PositionAdded", () => {
     clonsole.log("Position Added Event");
-    io.emit("positionAdded");
+    // io.emit("positionAdded");
 });
 
 export {router as ElectionRouter}

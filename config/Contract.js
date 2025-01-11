@@ -64,6 +64,11 @@ export const CandidateManagerConfig = {
                     name: "_position_id",
                     type: "uint256",
                 },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
             ],
             name: "addCandidate",
             outputs: [],
@@ -71,7 +76,13 @@ export const CandidateManagerConfig = {
             type: "function",
         },
         {
-            inputs: [],
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
+            ],
             name: "getAllCandidates",
             outputs: [
                 {
@@ -104,6 +115,11 @@ export const CandidateManagerConfig = {
                         {
                             internalType: "uint256",
                             name: "position_id",
+                            type: "uint256",
+                        },
+                        {
+                            internalType: "uint256",
+                            name: "election_id",
                             type: "uint256",
                         },
                     ],
@@ -208,6 +224,11 @@ export const CandidateManagerConfig = {
                     name: "_position_id",
                     type: "uint256",
                 },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
             ],
             name: "getCandidatesCountByPosition",
             outputs: [
@@ -225,6 +246,11 @@ export const CandidateManagerConfig = {
                 {
                     internalType: "uint256",
                     name: "_position__id",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
                     type: "uint256",
                 },
             ],
@@ -260,6 +286,11 @@ export const CandidateManagerConfig = {
                         {
                             internalType: "uint256",
                             name: "position_id",
+                            type: "uint256",
+                        },
+                        {
+                            internalType: "uint256",
+                            name: "election_id",
                             type: "uint256",
                         },
                     ],
@@ -417,7 +448,13 @@ export const ElectionConfig = {
             type: "function",
         },
         {
-            inputs: [],
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
+            ],
             name: "endElection",
             outputs: [],
             stateMutability: "nonpayable",
@@ -549,7 +586,13 @@ export const ElectionConfig = {
             type: "function",
         },
         {
-            inputs: [],
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
+            ],
             name: "isElectionActive",
             outputs: [
                 {
@@ -562,7 +605,13 @@ export const ElectionConfig = {
             type: "function",
         },
         {
-            inputs: [],
+            inputs: [
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
+            ],
             name: "startElection",
             outputs: [],
             stateMutability: "nonpayable",
@@ -673,6 +722,11 @@ export const VotingContractConfig = {
                     name: "_position_id",
                     type: "uint256",
                 },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
+                    type: "uint256",
+                },
             ],
             name: "getCandidatesForPosition",
             outputs: [
@@ -708,6 +762,11 @@ export const VotingContractConfig = {
                             name: "position_id",
                             type: "uint256",
                         },
+                        {
+                            internalType: "uint256",
+                            name: "election_id",
+                            type: "uint256",
+                        },
                     ],
                     internalType: "struct Candidate[]",
                     name: "",
@@ -722,6 +781,11 @@ export const VotingContractConfig = {
                 {
                     internalType: "uint256",
                     name: "_position_id",
+                    type: "uint256",
+                },
+                {
+                    internalType: "uint256",
+                    name: "_election_id",
                     type: "uint256",
                 },
             ],
@@ -760,6 +824,11 @@ export const VotingContractConfig = {
                     name: "",
                     type: "address",
                 },
+                {
+                    internalType: "uint256",
+                    name: "",
+                    type: "uint256",
+                },
             ],
             name: "voters",
             outputs: [
@@ -772,5 +841,5 @@ export const VotingContractConfig = {
             stateMutability: "view",
             type: "function",
         },
-    ]
+    ],
 };
