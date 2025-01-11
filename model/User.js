@@ -7,11 +7,22 @@ const registeredVoterSchema = new mongoose.Schema({
     national_identification_number: {type: String, required: true, unique: true},
     password: {type: String, required: true},
     wallet_address: {type: String, required: true},
-    wallet_private_key: {type: String, required: true}
+    wallet_private_key: {type: String, required: true},
+    role: {type: String, required: true}
 })
 
-const Registered_Voter = mongoose.model(
+const adminSchema = new mongoose.Schema({
+    user_name: {type: String, required: true},
+    password: {type: String, required: true},
+    wallet_address: {type: String, required: false},
+    role: {type: String, required: true}
+})
+
+export const Registered_Voter = mongoose.model(
     "Registered_Voter",
     registeredVoterSchema
 );
-export default Registered_Voter;
+export const Admin = mongoose.model(
+    "Admin",
+    adminSchema
+)

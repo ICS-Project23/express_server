@@ -2,13 +2,29 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { AuthRouter } from './routes/AuthRoute.js';
 import {blockchainRouter} from "./routes/BlockChainRoute.js";
-import app from './config/Express.js';
-import { server } from './config/SocketIO.js';
+import app, {server} from './config/Express.js';
 import { ElectionRouter } from './routes/Election.js';
 import { CandidateRouter } from './routes/Candidate.js';
+import { wss } from './config/WebSocket.js';
+
 
 dotenv.config();
 
+wss.on("connection", (ws) => {
+    console.log("User connected");
+    ws.on("message", (message) => {
+        let msg = JSON.parse(message);
+        console.log("Message from client:");
+        console.log(msg);
+        let payload = {
+            "event": "pong"
+        }
+        ws.send(JSON.stringify(payload))
+    });
+    ws.on("close", () => {
+        console.log("User disconnected");
+    });
+});
 
 app.use("/auth",AuthRouter);
 app.use("/vote", blockchainRouter);

@@ -7,7 +7,8 @@ import {
     getUserSigner,
 } from "../config/Container.js";
 import redis_client from "../config/Redis.js";
-import io from "../config/SocketIO.js";
+import { wss } from "../config/WebSocket.js";
+// import io from "../config/SocketIO.js";
 
 dotenv.config();
 
@@ -25,7 +26,7 @@ router.get("/signer", (req, res) => {
  * Voting Contract Routes
  */
 router.post("/", async (req, res) => {
-    const { candidateId, positionId, electionId} = req.body;
+    const { candidateId, positionId, electionId } = req.body;
     const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
@@ -49,7 +50,7 @@ router.post("/", async (req, res) => {
     //         if (electionDetails) {
     //             console.log("Cache hit");
     //             const election = JSON.parse(electionDetails);
-                
+
     //         } else {
     //             console.log("Cache miss");
     //             return res
@@ -69,21 +70,22 @@ router.post("/", async (req, res) => {
     //             );
     //     });
 });
-router.get("/results", (req, res) => {
-    const { position_id } = req.query;
+router.get("/results", async (req, res) => {
+    const { position_id, election_id } = req.query;
     const pk = req.cookies.pk;
     console.log("Data from request");
     console.log(req.body);
     let signer = getUserSigner(pk);
     console.log("Getting results ....");
-    voting_contract
-        .connect(signer)
-        .getResultsByPosition(position_id)
-        .catch((error) => {
-            console.error("An error occurred when trying to get results");
-            console.error(error.shortMessage || error);
-            return res.status(500).send(error.shortMessage);
-        });
+    try {
+        await voting_contract
+            .connect(signer)
+            .getResultsByPosition(position_id, election_id);
+        return res.status(200).send("Getting requests from blockchain");
+    } catch (error) {
+        console.error("An error occurred when trying to get election results");
+        console.error(error);
+    }
 });
 
 // TODO: Sort out Results function
@@ -94,14 +96,48 @@ router.get("/results", (req, res) => {
 voting_contract.on("Voted", (voter, candidateId) => {
     console.log("Voter:", voter);
     console.log("CandidateId:", candidateId);
-    io.emit("vote_update", { voter, candidateId });
+    wss.clients.forEach((client) => {
+        if (client.readyState == WebSocket.OPEN) {
+            let payload = {
+                event: "Voted",
+                data: {
+                    canidadate_id: candidateId.toString(),
+                },
+            };
+            console.log("Payload: ", payload);
+            client.send(JSON.stringify(payload));
+        }
+    });
 });
-voting_contract.on("CandidateResultsEvent", (id, full_name,party, voteCount) => {
-    console.log("CandidateResultsEvent");
-    console.log("ID:", id);
-    console.log("Full Name:", full_name);
-    console.log("Party:", party);
-    console.log("Vote Count:", voteCount);
-    io.emit("results_event", { id, full_name, party, voteCount });
-})
+voting_contract.on(
+    "CandidateResultsEvent",
+    (id, full_name, party, voteCount) => {
+        console.log("CandidateResultsEvent");
+        if (id.toString == "0") {
+            console.log("");
+            return;
+        }
+        const payload = {
+            event: "CandidateResultsEvent",
+            data: {
+                id: id.toString(),
+                full_name,
+                party,
+                voteCount: voteCount.toString(),
+            },
+        };
+        console.log("Payload: ", payload);
+        try {
+            let json = JSON.stringify(payload);
+            wss.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(json);
+                }
+            });
+        } catch (error) {
+            console.error("Error converting to JSON:", error);
+        }
+    }
+);
+
 export { router as blockchainRouter };

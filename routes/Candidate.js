@@ -10,7 +10,7 @@ const router = express.Router();
 
 
 router.post("/", (req, res) => {
-    const { full_name, dob, cid, party, position_id } = req.body;
+    const { full_name, dob, cid, party, position_id, election_id } = req.body;
     const pk = req.cookies.pk;
     console.log("Data from request", req.body);
     if (!full_name || !dob || !cid || !party || !position_id) {
@@ -32,7 +32,7 @@ router.post("/", (req, res) => {
         console.log("Adding candidate ....");
         candidate_manager_contract
             .connect(signer)
-            .addCandidate(full_name, dob, cid, party, position_id)
+            .addCandidate(full_name, dob, cid, party, position_id, election_id)
             .then((tx) => {
                 console.log("Candidate added successfully");
                 return res
@@ -135,52 +135,60 @@ router.get("/:id", (req, res) => {
         }
     });
 });
-router.get("/position/:id", (req, res) => {
-    const { id } = req.params;
+router.get("/position/:id/election/:election_id", (req, res) => {
+    const { id, election_id } = req.params;
     const pk = req.cookies.pk;
     const signer = getUserSigner(pk);
     console.log("Getting candidates by position ....");
-    redis_client.get("candidates").then((candidates) => {
-        console.log("Cached candidates");
-        console.log(candidates);
-        if (candidates != null) {
-            console.log("Cache hit");
-            let result = JSON.parse(candidates).filter(
-                (candidate) => candidate.position_id === id
-            );
-            return res.status(200).send(result);
-        } else {
-            console.log("Cache miss");
-            candidate_manager_contract
-                .connect(signer)
-                .getCandidatesForPosition(id)
-                .then((candidates) => {
-                    console.log("Candidates:");
-                    console.log(candidates);
-                    const candidatesJSON = candidates.map((candidate) => ({
-                        id: candidate[0].toString(),
-                        name: candidate[1],
-                        dob: candidate[2],
-                        cid: candidate[3],
-                        party: candidate[4],
-                        electionId: candidate[5].toString(),
-                    }));
-                    return res.status(200).send(candidatesJSON);
+    candidate_manager_contract
+        .connect(signer)
+        .getCandidatesForPosition(id, election_id)
+        .then((candidates) => {
+            console.log("Candidates:");
+            console.log(candidates);
+            const candidatesJSON = candidates
+                .map((candidate) => {
+                    if (candidate[1].toString() !== "") {
+                        return {
+                            id: candidate[0].toString(),
+                            name: candidate[1],
+                            dob: candidate[2],
+                            cid: candidate[3],
+                            party: candidate[4],
+                            electionId: candidate[5].toString(),
+                        };
+                    }
                 })
-                .catch((error) => {
-                    console.error(
-                        "An error occurred when trying to get candidates by position"
-                    );
-                    console.error(error);
-                    return res
-                        .status(500)
-                        .send(
-                            "An error occurred when trying to get candidates by position",
-                            error.shortMessage
-                        );
-                });
-        }
-    });
+                .filter(Boolean); // Filter out any undefined values
+
+            return res.status(200).send(candidatesJSON);
+        })
+        .catch((error) => {
+            console.error(
+                "An error occurred when trying to get candidates by position"
+            );
+            console.error(error);
+            return res
+                .status(500)
+                .send(
+                    {"message":"An error occurred when trying to get candidates by position",
+                    "error":error.shortMessage}
+                );
+        });
+    // redis_client.get("candidates").then((candidates) => {
+    //     console.log("Cached candidates");
+    //     console.log(candidates);
+    //     if (candidates != null) {
+    //         console.log("Cache hit");
+    //         let result = JSON.parse(candidates).filter(
+    //             (candidate) => candidate.position_id === id
+    //         );
+    //         return res.status(200).send(result);
+    //     } else {
+    //         console.log("Cache miss");
+            
+    //     }
+    // });
 });
 
 export {router as CandidateRouter}

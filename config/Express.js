@@ -1,6 +1,7 @@
 import express from 'express'
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import { createServer } from "http"
 
 
 
@@ -14,5 +15,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+
+export const server = createServer(app);
 
 export default app;
